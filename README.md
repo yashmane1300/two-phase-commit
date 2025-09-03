@@ -1,6 +1,6 @@
 # Two-Phase Commit Implementation (Python)
 
-This is an implementation of the Two-Phase Commit (2PC) protocol in Python, demonstrating advanced understanding of distributed systems, concurrency control, and transaction management.
+A robust implementation of the Two-Phase Commit (2PC) protocol in Python, demonstrating advanced understanding of distributed systems, concurrency control, and transaction management.
 
 ## Overview
 
@@ -37,7 +37,7 @@ This project implements a distributed transaction coordinator that ensures ACID 
 
 ## Technology Stack
 
-- **Language**: Python 3.8
+- **Language**: Python 3.8+
 - **Protocol**: HTTP/JSON REST APIs for inter-node communication
 - **Web Framework**: Flask for HTTP servers
 - **Testing**: pytest for unit testing
@@ -53,31 +53,33 @@ This project implements a distributed transaction coordinator that ensures ACID 
 ```bash
 git clone <repository-url>
 cd two-phase-commit
-./run.sh install-deps
+pip install flask requests pytest
 ```
 
-### Running the Demo
+### Quick Start (Recommended)
+```bash
+# Run the complete demo
+python3 demo_simple.py
+```
+
+This will start the coordinator, participants, and run a test transaction automatically.
+
+### Manual Setup
 ```bash
 # Start coordinator
-./run.sh run-coordinator
+python3 cmd/coordinator/main.py
 
 # Start participants (in separate terminals)
-./run.sh run-participant participant1 50051
-./run.sh run-participant participant2 50052
+python3 cmd/participant/simple_participant.py participant1 50051
+python3 cmd/participant/simple_participant.py participant2 50052
 
 # Run test client
-./run.sh run-client
-```
-
-### Running Complete Demo
-```bash
-# Run the entire demo (coordinator + participants + client)
-./run.sh run-demo
+python3 cmd/client/main.py
 ```
 
 ### Running Tests
 ```bash
-./run.sh run-tests
+python3 -m pytest tests/ -v
 ```
 
 ## API Documentation
@@ -103,18 +105,23 @@ cd two-phase-commit
 ```
 two-phase-commit/
 ├── internal/                    # Core business logic
-│   ├── coordinator/            # Coordinator implementation
-│   └── participant/            # Participant implementation
+│   └── coordinator/            # Coordinator implementation
+│       └── coordinator.py      # Main coordinator logic
 ├── cmd/                        # Executable entry points
 │   ├── coordinator/           # Coordinator server
+│   │   └── main.py           # Coordinator entry point
 │   ├── participant/           # Participant servers
+│   │   └── simple_participant.py  # Participant implementation
 │   └── client/                # Test client
+│       └── main.py           # Client entry point
 ├── pkg/                        # Shared utilities
 │   └── lock/                  # Lock management
+│       └── manager.py         # Lock manager implementation
 ├── tests/                      # Unit tests
+│   └── test_two_phase_commit.py
 ├── requirements-simple.txt     # Dependencies
-├── run.sh                      # Build/run script
-└── demo_simple.py             # Demo script
+├── demo_simple.py             # Demo script
+└── README.md                  # This file
 ```
 
 ## Key Components
@@ -148,9 +155,45 @@ The project includes comprehensive unit tests:
 
 ```bash
 # Run all tests
-./run.sh run-tests
+python3 -m pytest tests/ -v
 
 # Run specific test file
 python3 -m pytest tests/test_two_phase_commit.py -v
 ```
+
+## Development
+
+### Adding New Features
+1. Add business logic in `internal/` directory
+2. Add entry points in `cmd/` directory
+3. Add tests in `tests/` directory
+
+## Troubleshooting
+
+### Common Issues
+
+**Coordinator won't start:**
+- Check if port 50050 is available
+- Ensure Python dependencies are installed
+
+**Participants can't connect:**
+- Verify coordinator is running on port 50050
+- Check participant addresses in coordinator registration
+
+**Transactions failing:**
+- Check participant logs for errors
+- Verify network connectivity between nodes
+- Check timeout settings
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests
+5. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License.
 
