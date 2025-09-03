@@ -154,18 +154,3 @@ The project includes comprehensive unit tests:
 python3 -m pytest tests/test_two_phase_commit.py -v
 ```
 
-## Development
-
-### Code Quality
-```bash
-# Format code
-./run.sh format
-
-# Lint code
-./run.sh lint
-
-# Clean build artifacts
-./run.sh clean
-```
-
-icense.
