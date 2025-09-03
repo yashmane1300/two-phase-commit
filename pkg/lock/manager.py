@@ -22,7 +22,7 @@ class LockManager:
         self.default_timeout = default_timeout
         self._lock = threading.RLock()
     
-    def acquire_lock(self, transaction_id: str, resource: str) -> bool:
+    def acquire_lock(self, resource: str, transaction_id: str) -> bool:
         """Try to acquire a lock on a resource"""
         with self._lock:
             # Check if resource is already locked
