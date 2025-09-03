@@ -51,6 +51,9 @@ Thumbs.db
 *_pb2.py
 *_pb2_grpc.py
 
+# SQLite database files
+*.db
+
 # Test coverage
 .coverage
 htmlcov/

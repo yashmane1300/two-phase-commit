@@ -7,9 +7,9 @@ import sys
 import os
 
 def run_demo():
-    """Run the complete two-phase commit demo"""
+    """Run the complete two-phase commit demo with SQLite databases"""
     
-    print("🚀 Starting Two-Phase Commit Demo (REST/JSON Version)")
+    print("🚀 Starting Two-Phase Commit Demo (SQLite Version)")
     print("=" * 60)
     
     # Set PATH for subprocesses
@@ -28,7 +28,7 @@ def run_demo():
         processes.append(coordinator_process)
         time.sleep(3)  # Give coordinator time to start
         
-        # Start participants
+        # Start participants in background
         print("🖥️  Starting participant1 on port 50051...")
         participant1_process = subprocess.Popen(
             ["python3", "cmd/participant/simple_participant.py", "participant1", "50051"],
@@ -60,6 +60,14 @@ def run_demo():
         
         print("\n✅ Demo completed successfully!")
         
+        # Show database files
+        print("\n🗄️  SQLite Database Files Created:")
+        for i in range(1, 3):
+            db_file = f"participant_participant{i}.db"
+            if os.path.exists(db_file):
+                size = os.path.getsize(db_file)
+                print(f"   {db_file} ({size} bytes)")
+        
         # Show API endpoints
         print("\n🔗 Available API Endpoints:")
         print("   POST http://localhost:50050/execute - Execute transaction")
@@ -68,6 +76,9 @@ def run_demo():
         print("   GET  http://localhost:50050/participants - List participants")
         print("   GET  http://localhost:50050/health - Health check")
         print("   POST http://localhost:50050/register - Register participant")
+        
+        print("\n💾 Each participant now uses its own SQLite database file!")
+        print("   This makes the 2PC protocol more realistic with actual data persistence.")
         
     except KeyboardInterrupt:
         print("\n⏹️  Demo interrupted by user")
@@ -85,5 +96,5 @@ def run_demo():
             except:
                 pass
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     run_demo()

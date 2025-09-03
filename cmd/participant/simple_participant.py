@@ -2,6 +2,8 @@
 
 import json
 import logging
+import os
+import sqlite3
 import threading
 import time
 from dataclasses import dataclass, asdict
@@ -10,7 +12,7 @@ from enum import Enum
 from typing import Dict, List, Optional
 from flask import Flask, request, jsonify
 
-# Simple HTTP-based Participant Implementation
+# SQLite-based Participant Implementation
 
 class TransactionStatus(Enum):
     INITIALIZED = "INITIALIZED"
@@ -47,7 +49,7 @@ class LockManager:
         self.default_timeout = default_timeout
         self._lock = threading.RLock()
     
-    def acquire_lock(self, transaction_id: str, resource: str) -> bool:
+    def acquire_lock(self, resource: str, transaction_id: str) -> bool:
         with self._lock:
             if resource in self.locks:
                 existing_lock = self.locks[resource]
@@ -77,17 +79,95 @@ class LockManager:
             for resource in resources_to_remove:
                 del self.locks[resource]
 
-class Participant:
-    def __init__(self, participant_id: str, timeout: float = 30.0):
+class SQLiteParticipant:
+    def __init__(self, participant_id: str, db_path: str = None, timeout: float = 30.0):
         self.id = participant_id
         self.transactions: Dict[str, LocalTransaction] = {}
-        self.resources: Dict[str, str] = {}
         self.lock_manager = LockManager()
         self.timeout = timeout
         self.logger = logging.getLogger(__name__)
         self._lock = threading.RLock()
         
+        # Set up database path
+        if db_path is None:
+            db_path = f"participant_{participant_id}.db"
+        self.db_path = db_path
+        
+        # Initialize database
+        self._init_database()
+        
         logging.basicConfig(level=logging.INFO)
+    
+    def _init_database(self):
+        """Initialize SQLite database with tables"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            
+            # Create resources table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS resources (
+                    key TEXT PRIMARY KEY,
+                    value TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # Create transactions table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS transactions (
+                    id TEXT PRIMARY KEY,
+                    status TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # Insert some initial data
+            cursor.execute('''
+                INSERT OR IGNORE INTO resources (key, value) VALUES 
+                ('key1', 'value1'),
+                ('key2', 'value2'),
+                ('key3', 'value3')
+            ''')
+            
+            conn.commit()
+            self.logger.info(f"Database initialized: {self.db_path}")
+    
+    def _get_resource(self, key: str) -> Optional[str]:
+        """Get a resource value from SQLite"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT value FROM resources WHERE key = ?', (key,))
+            result = cursor.fetchone()
+            return result[0] if result else None
+    
+    def _set_resource(self, key: str, value: str) -> bool:
+        """Set a resource value in SQLite"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    INSERT OR REPLACE INTO resources (key, value, updated_at) 
+                    VALUES (?, ?, CURRENT_TIMESTAMP)
+                ''', (key, value))
+                conn.commit()
+                return True
+        except Exception as e:
+            self.logger.error(f"Failed to set resource {key}: {e}")
+            return False
+    
+    def _delete_resource(self, key: str) -> bool:
+        """Delete a resource from SQLite"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('DELETE FROM resources WHERE key = ?', (key,))
+                conn.commit()
+                return True
+        except Exception as e:
+            self.logger.error(f"Failed to delete resource {key}: {e}")
+            return False
     
     def begin_transaction(self, transaction_id: str) -> Dict:
         with self._lock:
@@ -116,184 +196,165 @@ class Participant:
     def prepare(self, transaction_id: str, operations: List[Dict]) -> Dict:
         with self._lock:
             txn = self.transactions.get(transaction_id)
-        
-        if not txn:
+            if not txn:
+                return {
+                    "prepared": False,
+                    "message": f"Transaction {transaction_id} not found",
+                }
+            
+            # Update transaction with operations
+            txn.operations = [Operation(**op) for op in operations]
+            txn.status = TransactionStatus.PREPARING
+            
+            # Try to acquire locks for all operations
+            if not self._acquire_locks(transaction_id, txn.operations):
+                self._release_locks(transaction_id)
+                return {
+                    "prepared": False,
+                    "message": f"Failed to acquire locks for transaction {transaction_id}",
+                }
+            
+            # Validate operations
+            if not self._validate_operations(txn.operations):
+                self._release_locks(transaction_id)
+                return {
+                    "prepared": False,
+                    "message": f"Validation failed for transaction {transaction_id}",
+                }
+            
+            txn.status = TransactionStatus.PREPARED
+            self.logger.info(f"Prepared transaction {transaction_id}")
+            
             return {
-                "prepared": False,
-                "message": f"Transaction {transaction_id} not found",
-                "participant_id": self.id
+                "prepared": True,
+                "message": f"Transaction {transaction_id} prepared successfully",
             }
-        
-        # Update transaction with operations
-        txn.operations = [Operation(**op) for op in operations]
-        txn.status = TransactionStatus.PREPARING
-        txn.updated_at = datetime.now()
-        
-        # Try to acquire locks for all operations
-        if not self._acquire_locks(transaction_id, txn.operations):
-            self._update_transaction_status(txn, TransactionStatus.ABORTED)
-            return {
-                "prepared": False,
-                "message": f"Failed to acquire locks for transaction {transaction_id}",
-                "participant_id": self.id
-            }
-        
-        # Validate operations
-        if not self._validate_operations(txn.operations):
-            self._release_locks(transaction_id)
-            self._update_transaction_status(txn, TransactionStatus.ABORTED)
-            return {
-                "prepared": False,
-                "message": f"Validation failed for transaction {transaction_id}",
-                "participant_id": self.id
-            }
-        
-        # Mark as prepared
-        self._update_transaction_status(txn, TransactionStatus.PREPARED)
-        self.logger.info(f"Prepared transaction {transaction_id}")
-        
-        return {
-            "prepared": True,
-            "message": f"Transaction {transaction_id} prepared successfully",
-            "participant_id": self.id
-        }
     
     def commit(self, transaction_id: str) -> Dict:
         with self._lock:
             txn = self.transactions.get(transaction_id)
-        
-        if not txn:
-            return {
-                "committed": False,
-                "message": f"Transaction {transaction_id} not found"
-            }
-        
-        if txn.status != TransactionStatus.PREPARED:
-            return {
-                "committed": False,
-                "message": f"Transaction {transaction_id} is not prepared (status: {txn.status})"
-            }
-        
-        # Apply operations to local resources
-        if not self._apply_operations(txn.operations):
+            if not txn:
+                return {
+                    "committed": False,
+                    "message": f"Transaction {transaction_id} not found"
+                }
+            
+            if txn.status != TransactionStatus.PREPARED:
+                return {
+                    "committed": False,
+                    "message": f"Transaction {transaction_id} is not prepared (status: {txn.status})"
+                }
+            
+            # Apply operations to database
+            if not self._apply_operations(txn.operations):
+                self._release_locks(transaction_id)
+                return {
+                    "committed": False,
+                    "message": f"Failed to apply operations for transaction {transaction_id}"
+                }
+            
+            # Release locks
             self._release_locks(transaction_id)
-            self._update_transaction_status(txn, TransactionStatus.ABORTED)
+            
+            txn.status = TransactionStatus.COMMITTED
+            self.logger.info(f"Committed transaction {transaction_id}")
+            
             return {
-                "committed": False,
-                "message": f"Failed to apply operations for transaction {transaction_id}"
+                "committed": True,
+                "message": f"Transaction {transaction_id} committed successfully"
             }
-        
-        # Release locks
-        self._release_locks(transaction_id)
-        
-        # Mark as committed
-        self._update_transaction_status(txn, TransactionStatus.COMMITTED)
-        self.logger.info(f"Committed transaction {transaction_id}")
-        
-        return {
-            "committed": True,
-            "message": f"Transaction {transaction_id} committed successfully"
-        }
     
     def abort(self, transaction_id: str) -> Dict:
         with self._lock:
             txn = self.transactions.get(transaction_id)
-        
-        if not txn:
+            if not txn:
+                return {
+                    "aborted": False,
+                    "message": f"Transaction {transaction_id} not found"
+                }
+            
+            # Release locks
+            self._release_locks(transaction_id)
+            
+            txn.status = TransactionStatus.ABORTED
+            self.logger.info(f"Aborted transaction {transaction_id}")
+            
             return {
-                "aborted": False,
-                "message": f"Transaction {transaction_id} not found"
+                "aborted": True,
+                "message": f"Transaction {transaction_id} aborted successfully"
             }
-        
-        # Release locks
-        self._release_locks(transaction_id)
-        
-        # Mark as aborted
-        self._update_transaction_status(txn, TransactionStatus.ABORTED)
-        self.logger.info(f"Aborted transaction {transaction_id}")
-        
-        return {
-            "aborted": True,
-            "message": f"Transaction {transaction_id} aborted successfully"
-        }
     
     def get_status(self, transaction_id: str) -> Dict:
         with self._lock:
             txn = self.transactions.get(transaction_id)
-        
-        if not txn:
+            if not txn:
+                return {
+                    "status": TransactionStatus.ABORTED.value,
+                    "message": f"Transaction {transaction_id} not found"
+                }
+            
             return {
-                "status": TransactionStatus.ABORTED.value,
-                "message": f"Transaction {transaction_id} not found"
+                "status": txn.status.value,
+                "message": f"Transaction {transaction_id} status: {txn.status.value}"
             }
-        
-        return {
-            "status": txn.status.value,
-            "message": f"Transaction {transaction_id} status: {txn.status.value}"
-        }
     
     def _acquire_locks(self, transaction_id: str, operations: List[Operation]) -> bool:
+        """Acquire locks for all operations"""
         for operation in operations:
-            if not self.lock_manager.acquire_lock(transaction_id, operation.key):
-                self._release_locks(transaction_id)
+            if not self.lock_manager.acquire_lock(operation.key, transaction_id):
                 return False
         return True
     
     def _release_locks(self, transaction_id: str) -> None:
+        """Release all locks for a transaction"""
         self.lock_manager.release_locks(transaction_id)
     
     def _validate_operations(self, operations: List[Operation]) -> bool:
+        """Validate that operations can be performed"""
         for operation in operations:
             if operation.type == OperationType.READ:
-                if operation.key not in self.resources:
-                    self.logger.warning(f"Read operation failed: key {operation.key} does not exist")
-                    return False
-            elif operation.type == OperationType.WRITE:
-                pass  # Write operations are always valid
-            elif operation.type == OperationType.DELETE:
-                if operation.key not in self.resources:
-                    self.logger.warning(f"Delete operation failed: key {operation.key} does not exist")
+                # Check if resource exists
+                if self._get_resource(operation.key) is None:
                     return False
         return True
     
     def _apply_operations(self, operations: List[Operation]) -> bool:
-        try:
-            for operation in operations:
-                if operation.type == OperationType.READ:
-                    pass  # Read operations don't modify state
-                elif operation.type == OperationType.WRITE:
-                    self.resources[operation.key] = operation.value
-                elif operation.type == OperationType.DELETE:
-                    del self.resources[operation.key]
-            return True
-        except Exception as e:
-            self.logger.error(f"Failed to apply operations: {e}")
-            return False
+        """Apply operations to the database"""
+        for operation in operations:
+            if operation.type == OperationType.READ:
+                # Read operations don't modify data
+                continue
+            elif operation.type == OperationType.WRITE:
+                if not self._set_resource(operation.key, operation.value):
+                    return False
+            elif operation.type == OperationType.DELETE:
+                if not self._delete_resource(operation.key):
+                    return False
+        return True
     
-    def _update_transaction_status(self, txn: LocalTransaction, status: TransactionStatus) -> None:
-        txn.status = status
-        txn.updated_at = datetime.now()
-    
-    def set_resource(self, key: str, value: str) -> None:
-        with self._lock:
-            self.resources[key] = value
-    
-    def get_resource(self, key: str) -> Optional[str]:
-        with self._lock:
-            return self.resources.get(key)
+    def get_resource(self, key: str) -> Dict:
+        """Get a resource value from the database"""
+        value = self._get_resource(key)
+        return {
+            "key": key,
+            "value": value,
+            "exists": value is not None
+        }
 
 # Flask app for participant
 app = Flask(__name__)
 participant = None
 
 @app.route('/begin', methods=['POST'])
-def begin_transaction():
+def begin():
+    """Begin a new transaction"""
     data = request.json
     result = participant.begin_transaction(data['transaction_id'])
     return jsonify(result)
 
 @app.route('/prepare', methods=['POST'])
 def prepare():
+    """Prepare phase of 2PC"""
     data = request.json
     result = participant.prepare(
         transaction_id=data['transaction_id'],
@@ -303,43 +364,44 @@ def prepare():
 
 @app.route('/commit', methods=['POST'])
 def commit():
+    """Commit phase of 2PC"""
     data = request.json
     result = participant.commit(data['transaction_id'])
     return jsonify(result)
 
 @app.route('/abort', methods=['POST'])
 def abort():
+    """Abort a transaction"""
     data = request.json
     result = participant.abort(data['transaction_id'])
     return jsonify(result)
 
 @app.route('/status/<transaction_id>', methods=['GET'])
 def get_status(transaction_id):
+    """Get transaction status"""
     result = participant.get_status(transaction_id)
     return jsonify(result)
 
 @app.route('/resource/<key>', methods=['GET'])
 def get_resource(key):
-    value = participant.get_resource(key)
-    return jsonify({"key": key, "value": value})
+    """Get resource value"""
+    result = participant.get_resource(key)
+    return jsonify(result)
 
 if __name__ == '__main__':
     import sys
     
     if len(sys.argv) < 3:
-        print("Usage: python simple_participant.py <participant_id> <port>")
+        print("Usage: python3 simple_participant.py <participant_id> <port>")
         sys.exit(1)
     
     participant_id = sys.argv[1]
     port = int(sys.argv[2])
     
-    participant = Participant(participant_id)
-    
-    # Initialize some test data
-    participant.set_resource("key1", "value1")
-    participant.set_resource("key2", "value2")
-    participant.set_resource("key3", "value3")
+    # Create participant with SQLite database
+    participant = SQLiteParticipant(participant_id)
     
     print(f"Starting Two-Phase Commit Participant {participant_id} on port {port}")
+    print(f"Database: {participant.db_path}")
     app.run(host='0.0.0.0', port=port, debug=True)
 

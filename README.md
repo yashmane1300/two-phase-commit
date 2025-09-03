@@ -11,6 +11,7 @@ This project implements a distributed transaction coordinator that ensures ACID 
 - **Fault Tolerance**: Managing node failures and network partitions
 - **Consistency Guarantees**: Ensuring data consistency in distributed environments
 - **REST API Design**: Modern HTTP/JSON APIs for inter-node communication
+- **Database Integration**: Each participant uses its own SQLite database for data persistence
 
 ## Architecture
 
@@ -40,6 +41,7 @@ This project implements a distributed transaction coordinator that ensures ACID 
 - **Language**: Python 3.8+
 - **Protocol**: HTTP/JSON REST APIs for inter-node communication
 - **Web Framework**: Flask for HTTP servers
+- **Database**: SQLite for data persistence
 - **Testing**: pytest for unit testing
 - **Monitoring**: Structured logging with timestamps
 
@@ -136,11 +138,14 @@ two-phase-commit/
 
 ### Participant (`cmd/participant/simple_participant.py`)
 - **Purpose**: Handles local data and participates in 2PC
+- **Database**: Uses SQLite database for data persistence
 - **Key Functions**:
   - `begin_transaction()`: Start local transaction
   - `prepare()`: Acquire locks and validate operations
-  - `commit()`: Apply operations and release locks
+  - `commit()`: Apply operations to SQLite database and release locks
   - `abort()`: Release locks without applying changes
+  - `_get_resource()`: Read from SQLite database
+  - `_set_resource()`: Write to SQLite database
 
 ### Lock Manager (`pkg/lock/manager.py`)
 - **Purpose**: Prevents conflicts between transactions
