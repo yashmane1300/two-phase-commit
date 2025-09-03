@@ -106,29 +106,27 @@ python3 -m pytest tests/ -v
 
 ```
 two-phase-commit/
-├── internal/                    # Core business logic
-│   └── coordinator/            # Coordinator implementation
-│       └── coordinator.py      # Main coordinator logic
-├── cmd/                        # Executable entry points
-│   ├── coordinator/           # Coordinator server
-│   │   └── main.py           # Coordinator entry point
-│   ├── participant/           # Participant servers
-│   │   └── simple_participant.py  # Participant implementation
-│   └── client/                # Test client
-│       └── main.py           # Client entry point
-├── pkg/                        # Shared utilities
-│   └── lock/                  # Lock management
-│       └── manager.py         # Lock manager implementation
-├── tests/                      # Unit tests
-│   └── test_two_phase_commit.py
-├── requirements-simple.txt     # Dependencies
-├── demo_simple.py             # Demo script
-└── README.md                  # This file
+├── src/                          # Main source code
+│   ├── coordinator/              # Coordinator implementation
+│   │   └── coordinator.py        # Core coordinator logic with Flask app
+│   ├── participant/              # Participant implementation
+│   │   ├── simple_participant.py # SQLite-based participant logic
+│   │   └── app.py               # Flask app for participant
+│   └── core/                     # Shared utilities
+│       └── manager.py            # Lock manager for concurrency control
+├── servers/                      # Server entry points
+│   ├── coordinator_server.py     # Coordinator server
+│   ├── participant_server.py     # Participant server
+│   └── client.py                # Test client
+├── tests/                        # Unit tests
+│   └── test_two_phase_commit.py  # Test cases for coordinator and lock manager
+├── demo.py                       # End-to-end demo script
+└── requirements-simple.txt       # Python dependencies
 ```
 
 ## Key Components
 
-### Coordinator (`internal/coordinator/coordinator.py`)
+### Coordinator (`src/coordinator/coordinator.py`)
 - **Purpose**: Orchestrates the 2PC protocol
 - **Key Functions**:
   - `execute_transaction()`: Main entry point
@@ -136,7 +134,7 @@ two-phase-commit/
   - `_commit_phase()`: Phase 2 - tell participants to commit
   - `_abort_transaction()`: Tell participants to abort
 
-### Participant (`cmd/participant/simple_participant.py`)
+### Participant (`src/participant/simple_participant.py`)
 - **Purpose**: Handles local data and participates in 2PC
 - **Database**: Uses SQLite database for data persistence
 - **Key Functions**:
@@ -147,7 +145,7 @@ two-phase-commit/
   - `_get_resource()`: Read from SQLite database
   - `_set_resource()`: Write to SQLite database
 
-### Lock Manager (`pkg/lock/manager.py`)
+### Lock Manager (`src/core/manager.py`)
 - **Purpose**: Prevents conflicts between transactions
 - **Key Functions**:
   - `acquire_lock()`: Try to acquire lock on resource
@@ -169,8 +167,8 @@ python3 -m pytest tests/test_two_phase_commit.py -v
 ## Development
 
 ### Adding New Features
-1. Add business logic in `internal/` directory
-2. Add entry points in `cmd/` directory
+1. Add business logic in `src/` directory
+2. Add server entry points in `servers/` directory
 3. Add tests in `tests/` directory
 
 ## Troubleshooting

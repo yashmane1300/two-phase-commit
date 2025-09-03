@@ -22,7 +22,7 @@ def run_demo():
         # Start coordinator
         print("📡 Starting coordinator on port 50050...")
         coordinator_process = subprocess.Popen(
-            ["python3", "cmd/coordinator/main.py"],
+            ["python3", "servers/coordinator_server.py"],
             env=env
         )
         processes.append(coordinator_process)
@@ -31,7 +31,7 @@ def run_demo():
         # Start participants in background
         print("🖥️  Starting participant1 on port 50051...")
         participant1_process = subprocess.Popen(
-            ["python3", "cmd/participant/simple_participant.py", "participant1", "50051"],
+            ["python3", "servers/participant_server.py", "participant1", "50051"],
             env=env
         )
         processes.append(participant1_process)
@@ -39,7 +39,7 @@ def run_demo():
         
         print("🖥️  Starting participant2 on port 50052...")
         participant2_process = subprocess.Popen(
-            ["python3", "cmd/participant/simple_participant.py", "participant2", "50052"],
+            ["python3", "servers/participant_server.py", "participant2", "50052"],
             env=env
         )
         processes.append(participant2_process)
@@ -48,7 +48,7 @@ def run_demo():
         # Run test client
         print("🧪 Running test transaction...")
         client_process = subprocess.run(
-            ["python3", "cmd/client/main.py"],
+            ["python3", "servers/client.py"],
             env=env,
             capture_output=True,
             text=True

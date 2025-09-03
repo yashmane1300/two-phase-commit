@@ -4,8 +4,8 @@ from unittest.mock import Mock, AsyncMock
 from datetime import datetime
 
 # Import our modules
-from internal.coordinator.coordinator import Coordinator, Transaction, TransactionStatus
-from pkg.lock.manager import LockManager
+from src.coordinator.coordinator import Coordinator, Transaction, TransactionStatus
+from src.core.manager import LockManager
 
 
 class TestCoordinator:

@@ -10,7 +10,7 @@ import os
 sys.path.insert(0, os.getcwd())
 
 # Import our modules
-from internal.coordinator.coordinator import app
+from src.coordinator.coordinator import app
 
 def main():
     """Main function"""
