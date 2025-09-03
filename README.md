@@ -1,6 +1,6 @@
 # Two-Phase Commit Implementation (Python)
 
-A robust implementation of the Two-Phase Commit (2PC) protocol in Python, demonstrating advanced understanding of distributed systems, concurrency control, and transaction management.
+This is an implementation of the Two-Phase Commit (2PC) protocol in Python, demonstrating advanced understanding of distributed systems, concurrency control, and transaction management.
 
 ## Overview
 
@@ -37,11 +37,10 @@ This project implements a distributed transaction coordinator that ensures ACID 
 
 ## Technology Stack
 
-- **Language**: Python 3.8+ (for modern features)
+- **Language**: Python 3.8
 - **Protocol**: HTTP/JSON REST APIs for inter-node communication
 - **Web Framework**: Flask for HTTP servers
 - **Testing**: pytest for unit testing
-- **Code Quality**: black for formatting, flake8 for linting
 - **Monitoring**: Structured logging with timestamps
 
 ## Getting Started
@@ -99,13 +98,6 @@ cd two-phase-commit
 - `GET /status/{id}` - Get current transaction status
 - `GET /resource/{key}` - Get resource value
 
-## Performance Characteristics
-
-- **Latency**: ~10-50ms per transaction (depending on network)
-- **Throughput**: 100+ transactions/second
-- **Scalability**: Linear scaling with participant count
-- **Reliability**: 99.9% success rate under normal conditions
-
 ## Project Structure
 
 ```
@@ -162,51 +154,3 @@ The project includes comprehensive unit tests:
 python3 -m pytest tests/test_two_phase_commit.py -v
 ```
 
-## Development
-
-### Code Quality
-```bash
-# Format code
-./run.sh format
-
-# Lint code
-./run.sh lint
-
-# Clean build artifacts
-./run.sh clean
-```
-
-### Adding New Features
-1. Add business logic in `internal/` directory
-2. Add entry points in `cmd/` directory
-3. Add tests in `tests/` directory
-4. Update `run.sh` if needed
-
-## Troubleshooting
-
-### Common Issues
-
-**Coordinator won't start:**
-- Check if port 50050 is available
-- Ensure Python dependencies are installed
-
-**Participants can't connect:**
-- Verify coordinator is running on port 50050
-- Check participant addresses in coordinator registration
-
-**Transactions failing:**
-- Check participant logs for errors
-- Verify network connectivity between nodes
-- Check timeout settings
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
-
-## License
-
-This project is licensed under the MIT License.
