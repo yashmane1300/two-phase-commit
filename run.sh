@@ -120,26 +120,6 @@ clean() {
     print_info "Clean completed"
 }
 
-# Format code
-format_code() {
-    print_info "Formatting code..."
-    if command -v black &> /dev/null; then
-        black .
-    else
-        print_warning "black not found. Install with: pip install black"
-    fi
-}
-
-# Lint code
-lint_code() {
-    print_info "Linting code..."
-    if command -v flake8 &> /dev/null; then
-        flake8 .
-    else
-        print_warning "flake8 not found. Install with: pip install flake8"
-    fi
-}
-
 # Show help
 show_help() {
     echo "Two-Phase Commit Python Project (REST/JSON Version)"
@@ -152,8 +132,6 @@ show_help() {
     echo "  run-demo          - Run complete demo with coordinator and participants"
     echo "  run-tests         - Run tests"
     echo "  clean            - Clean build artifacts"
-    echo "  format           - Format code with black"
-    echo "  lint             - Lint code with flake8"
     echo "  help             - Show this help"
     echo ""
     echo "Examples:"
@@ -170,11 +148,11 @@ show_help() {
     echo "    GET  /health - Health check"
     echo ""
     echo "  Participant (ports 50051, 50052, etc.):"
-    echo "    POST /begin - Begin transaction"
-    echo "    POST /prepare - Prepare transaction"
-    echo "    POST /commit - Commit transaction"
-    echo "    POST /abort - Abort transaction"
-    echo "    GET  /status/{id} - Get transaction status"
+    echo "    POST /begin - Start a new local transaction"
+    echo "    POST /prepare - Prepare local resources for commit"
+    echo "    POST /commit - Commit local changes"
+    echo "    POST /abort - Rollback local changes"
+    echo "    GET  /status/{id} - Get current transaction status"
     echo "    GET  /resource/{key} - Get resource value"
 }
 
@@ -206,12 +184,6 @@ main() {
             ;;
         "clean")
             clean
-            ;;
-        "format")
-            format_code
-            ;;
-        "lint")
-            lint_code
             ;;
         "help"|*)
             show_help
