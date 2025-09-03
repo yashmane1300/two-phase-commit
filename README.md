@@ -45,7 +45,7 @@ This project implements a distributed transaction coordinator that ensures ACID 
 - **Testing**: pytest for unit testing
 - **Monitoring**: Structured logging with timestamps
 
-## Getting Started
+## Quick Start
 
 ### Prerequisites
 - Python 3.8+
@@ -58,30 +58,47 @@ cd two-phase-commit
 pip install flask requests pytest
 ```
 
-### Quick Start (Recommended)
+### Run the Demo (Recommended)
 ```bash
-# Run the complete demo
-python3 demo_simple.py
+# Run the complete demo - this starts everything automatically
+python demo.py
 ```
 
-This will start the coordinator, participants, and run a test transaction automatically.
+This will:
+- Start the coordinator server on port 50050
+- Start participant servers on ports 50051 and 50052
+- Execute a test transaction
+- Show the results
+- Clean up all services
 
-### Manual Setup
+## Testing
+
+### Unit Tests
+```bash
+# Run all unit tests
+python -m pytest tests/test_two_phase_commit.py -v
+```
+
+### Integration Tests
+```bash
+# Run basic integration tests
+python tests/simple_test.py
+
+# Run comprehensive scenario tests
+python tests/test_scenarios.py
+```
+
+### Manual Testing
 ```bash
 # Start coordinator
-python3 cmd/coordinator/main.py
+python servers/coordinator_server.py
 
 # Start participants (in separate terminals)
-python3 cmd/participant/simple_participant.py participant1 50051
-python3 cmd/participant/simple_participant.py participant2 50052
+python servers/participant_server.py participant1 50051
+python servers/participant_server.py participant2 50052
 
 # Run test client
-python3 cmd/client/main.py
-```
-
-### Running Tests
-```bash
-python3 -m pytest tests/ -v
+python servers/client.py
 ```
 
 ## API Documentation
@@ -118,8 +135,10 @@ two-phase-commit/
 │   ├── coordinator_server.py     # Coordinator server
 │   ├── participant_server.py     # Participant server
 │   └── client.py                # Test client
-├── tests/                        # Unit tests
-│   └── test_two_phase_commit.py  # Test cases for coordinator and lock manager
+├── tests/                        # All tests
+│   ├── test_two_phase_commit.py  # Unit tests for coordinator and lock manager
+│   ├── simple_test.py            # Basic integration tests
+│   └── test_scenarios.py         # Comprehensive scenario tests
 ├── demo.py                       # End-to-end demo script
 └── requirements-simple.txt       # Python dependencies
 ```
@@ -152,16 +171,51 @@ two-phase-commit/
   - `release_locks()`: Release all locks for transaction
   - `is_locked()`: Check if resource is locked
 
-## Testing
+## Troubleshooting
 
-The project includes comprehensive unit tests:
+### Common Issues
+
+**Port already in use:**
+```bash
+# Kill existing processes
+python -c "import subprocess; subprocess.run(['pkill', '-f', 'python'])"
+
+# Or use different ports
+python servers/coordinator_server.py --port 50060
+```
+
+**Shell command issues:**
+```bash
+# Use Python for file operations
+python -c "import os; print(os.listdir('.'))"
+
+# Check running processes
+python -c "import subprocess; result = subprocess.run(['ps', 'aux'], capture_output=True, text=True); print(result.stdout)"
+```
+
+**Virtual Environment (Optional):**
+```bash
+# Create virtual environment
+python -m venv venv
+
+# Activate (macOS/Linux)
+source venv/bin/activate
+
+# Install dependencies
+pip install flask requests pytest
+
+# Run demo
+python demo.py
+```
+
+### Health Checks
 
 ```bash
-# Run all tests
-python3 -m pytest tests/ -v
+# Check coordinator health
+curl http://localhost:50050/health
 
-# Run specific test file
-python3 -m pytest tests/test_two_phase_commit.py -v
+# Check participant resources
+curl http://localhost:50051/resource/key1
 ```
 
 ## Development
@@ -171,22 +225,15 @@ python3 -m pytest tests/test_two_phase_commit.py -v
 2. Add server entry points in `servers/` directory
 3. Add tests in `tests/` directory
 
-## Troubleshooting
+### Running Tests
+```bash
+# All unit tests
+python -m pytest tests/test_two_phase_commit.py -v
 
-### Common Issues
-
-**Coordinator won't start:**
-- Check if port 50050 is available
-- Ensure Python dependencies are installed
-
-**Participants can't connect:**
-- Verify coordinator is running on port 50050
-- Check participant addresses in coordinator registration
-
-**Transactions failing:**
-- Check participant logs for errors
-- Verify network connectivity between nodes
-- Check timeout settings
+# Integration tests
+python tests/simple_test.py
+python tests/test_scenarios.py
+```
 
 ## Contributing
 
