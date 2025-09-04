@@ -33,7 +33,7 @@ class OperationType(Enum):
 class Operation:
     key: str
     value: Optional[str] = None
-    type: OperationType = OperationType.READ
+    type: str = "READ"  # Change to string to match JSON input
 
 @dataclass
 class LocalTransaction:
@@ -312,7 +312,7 @@ class SQLiteParticipant:
     def _validate_operations(self, operations: List[Operation]) -> bool:
         """Validate that operations can be performed"""
         for operation in operations:
-            if operation.type == OperationType.READ:
+            if operation.type == "READ":
                 # Check if resource exists
                 if self._get_resource(operation.key) is None:
                     return False
@@ -321,13 +321,13 @@ class SQLiteParticipant:
     def _apply_operations(self, operations: List[Operation]) -> bool:
         """Apply operations to the database"""
         for operation in operations:
-            if operation.type == OperationType.READ:
+            if operation.type == "READ":
                 # Read operations don't modify data
                 continue
-            elif operation.type == OperationType.WRITE:
+            elif operation.type == "WRITE":
                 if not self._set_resource(operation.key, operation.value):
                     return False
-            elif operation.type == OperationType.DELETE:
+            elif operation.type == "DELETE":
                 if not self._delete_resource(operation.key):
                     return False
         return True
